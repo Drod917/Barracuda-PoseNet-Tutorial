@@ -2082,6 +2082,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   videoTexture: {fileID: 8400000, guid: 7191e1a5649ab41a4b69f57328d95656, type: 2}
   posenetShader: {fileID: 7200000, guid: d733f9d3694ff46cd8d5dfd3aa7e1fb9, type: 3}
+  webcamHeight: 720
+  webcamWidth: 1280
+  webcamFPS: 60
   imageHeight: 360
   imageWidth: 360
   displayInput: 0
