@@ -4,16 +4,16 @@ using UnityEngine;
 
 public class DrawSkeleton : MonoBehaviour
 {
-    [Tooltip("The list of key point GameObjects that make up the pose skeleton")]
+    [Tooltip("The list of keypoint GameObjects that make up the pose skeleton")]
     public GameObject[] keypoints;
 
-    // The GameObjects that contain data for the lines between key points
+    // The GameObjects that contain data for the lines between keypoints
     private GameObject[] lines;
 
-    // The line renderers the draw the lines between key points
+    // The line renderers that draw the lines between keypoints
     private LineRenderer[] lineRenderers;
-    
-    // The pairs of key points that should be connected on a body
+
+    // The pairs of keypoints that should be connected on a body
     private int[][] jointPairs;
 
     // The width for the skeleton lines
@@ -24,44 +24,39 @@ public class DrawSkeleton : MonoBehaviour
     {
         // The number of joint pairs
         int numPairs = keypoints.Length + 1;
-        // Initialize the lines array
+        // Initalize the lines array
         lines = new GameObject[numPairs];
         // Initialize the lineRenderers array
         lineRenderers = new LineRenderer[numPairs];
         // Initialize the jointPairs array
         jointPairs = new int[numPairs][];
-        
+
         // Initialize the pose skeleton
-        InitializeSkeleton();
+        initializeSkeleton();
     }
 
-    // LateUpdate is called after all Update functions have been called
+    // Update is called once per frame
+    void Update()
+    {
+        
+    }
+
     void LateUpdate()
     {
         RenderSkeleton();
     }
 
-    /// <summary>
-    /// Create a line between the key point specified by the start and end point indices
-    /// </summary>
-    /// <param name="pairIndex"></param>
-    /// <param name="startIndex"></param>
-    /// <param name="endIndex"></param>
-    /// <param name="width"></param>
-    /// <param name="color"></param>
     private void InitializeLine(int pairIndex, int startIndex, int endIndex, float width, Color color)
     {
         // Create a new joint pair with the specified start and end point indices
         jointPairs[pairIndex] = new int[] { startIndex, endIndex };
 
-        // Create new line GameObject
+        // Create a new line GameObject
         string name = $"{keypoints[startIndex].name}_to_{keypoints[endIndex].name}";
         lines[pairIndex] = new GameObject(name);
-        
+
         // Add LineRenderer component
         lineRenderers[pairIndex] = lines[pairIndex].AddComponent<LineRenderer>();
-        // Make LineRenderer Shader Unlit
-        lineRenderers[pairIndex].material = new Material(Shader.Find("Unlit/Color"));
         // Set the material color
         lineRenderers[pairIndex].material.color = color;
         
@@ -74,10 +69,7 @@ public class DrawSkeleton : MonoBehaviour
         lineRenderers[pairIndex].endWidth = width;
     }
 
-    /// <summary>
-    /// Initialize the pose skeleton
-    /// </summary>
-    private void InitializeSkeleton()
+    private void initializeSkeleton()
     {
         // Nose to left eye
         InitializeLine(0, 0, 1, lineWidth, Color.magenta);
@@ -101,24 +93,23 @@ public class DrawSkeleton : MonoBehaviour
         // Left hip to right hip
         InitializeLine(9, 11, 12, lineWidth, Color.red);
 
-        // Left Arm
+        // Left arm
         InitializeLine(10, 5, 7, lineWidth, Color.green);
         InitializeLine(11, 7, 9, lineWidth, Color.green);
-        // Right Arm
+
+        // Right arm
         InitializeLine(12, 6, 8, lineWidth, Color.green);
         InitializeLine(13, 8, 10, lineWidth, Color.green);
 
-        // Left Leg
+        // Left leg
         InitializeLine(14, 11, 13, lineWidth, Color.blue);
         InitializeLine(15, 13, 15, lineWidth, Color.blue);
-        // Right Leg
+
+        // Right leg
         InitializeLine(16, 12, 14, lineWidth, Color.blue);
         InitializeLine(17, 14, 16, lineWidth, Color.blue);
     }
 
-    /// <summary>
-    /// Draw the pose skeleton based on the latest location data
-    /// </summary>
     private void RenderSkeleton()
     {
         // Iterate through the joint pairs
@@ -126,7 +117,7 @@ public class DrawSkeleton : MonoBehaviour
         {
             // Set the start point index
             int startpointIndex = jointPairs[i][0];
-            // Set the end poin indext
+            // Set the end point index
             int endpointIndex = jointPairs[i][1];
 
             // Set the GameObject for the starting key point
@@ -138,12 +129,13 @@ public class DrawSkeleton : MonoBehaviour
             Vector3 startPos = new Vector3(startingKeyPoint.transform.position.x,
                                            startingKeyPoint.transform.position.y,
                                            startingKeyPoint.transform.position.z);
+
             // Get the ending position for the line
             Vector3 endPos = new Vector3(endingKeyPoint.transform.position.x,
-                                         endingKeyPoint.transform.position.y,
-                                         endingKeyPoint.transform.position.z);
+                                           endingKeyPoint.transform.position.y,
+                                           endingKeyPoint.transform.position.z);
 
-            // Check if both the starting and ending key points are active
+            // Check if both the starting and ending keypoints are active
             if (startingKeyPoint.activeInHierarchy && endingKeyPoint.activeInHierarchy)
             {
                 // Activate the line
