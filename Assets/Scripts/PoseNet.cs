@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Video;
 using Unity.Barracuda;
 
 public class PoseNet : MonoBehaviour
@@ -12,6 +13,15 @@ public class PoseNet : MonoBehaviour
 
     [Tooltip("The ComputeShader that will perform the model-specific preprocessing.")]
     public ComputeShader posenetShader;
+
+    [Tooltip("The requested webcam height")]
+    public int webcamHeight = 720;
+
+    [Tooltip("The requested webcam width")]
+    public int webcamWidth = 1280;
+
+    [Tooltip("The requested webcam frame rate")]
+    public int webcamFPS = 60;
 
     [Tooltip("The height of the image being fed to the model")]
     public int imageHeight = 360;
@@ -69,18 +79,34 @@ public class PoseNet : MonoBehaviour
     // Live video input from a webcam
     private WebCamTexture webcamTexture;
 
+    // The height of the current video source
+    private int videoHeight;
 
+    // The width of the current video source
+    private int videoWidth;
 
-    // Start is called before the first frame update
     void Start()
     {
+        StartCoroutine(StartCo());
+    }
+
+    // Start is called before the first frame update
+    IEnumerator StartCo()
+    {
+        // Get a reference to the Video Player
+        GameObject videoPlayer = GameObject.Find("Video Player");
+
+        // Get the Transform of the Video Screen
+        Transform videoScreen = GameObject.Find("VideoScreen").transform;
+
         if (useWebcam)
         {
             // Create a new webcamTexture
             webcamTexture = new WebCamTexture();
 
             // Get the Transform component for the videoScreen GameObject
-            Transform videoScreen = GameObject.Find("VideoScreen").transform;
+            // Transform videoScreen = GameObject.Find("VideoScreen").transform;
+
             // Flip the videoscreen around the y-axis
             videoScreen.rotation = Quaternion.Euler(0, 180, 0);
             // Invert the scale value for the z-axis
@@ -91,7 +117,48 @@ public class PoseNet : MonoBehaviour
 
             // Deactivate the Video Player
             GameObject.Find("Video Player").SetActive(false);
+
+            // Mac Fix
+            yield return new WaitUntil(() => webcamTexture.height > 100);
+
+            // Update the videoHeight
+            videoHeight = (int)webcamTexture.height;
+
+            // Update the videoWidth
+            videoWidth = (int)webcamTexture.width;
         }
+        else
+        {
+            // Update the videoHeight
+            videoHeight = (int)videoPlayer.GetComponent<VideoPlayer>().height;
+            // Update the videoWidth
+            videoWidth = (int)videoPlayer.GetComponent<VideoPlayer>().width;
+        }
+
+        // Release the current videoTexture
+        videoTexture.Release();
+
+        // Create a new videoTexture using the current video dimensions
+        videoTexture = new RenderTexture(videoWidth, videoHeight, 24, RenderTextureFormat.ARGB32);
+
+        // Use a new videoTexture for Video Player
+        videoPlayer.GetComponent<VideoPlayer>().targetTexture = videoTexture;
+
+        // Apply the new videoTexture to the VideoScreen GameObject
+        videoScreen.gameObject.GetComponent<MeshRenderer>().material.SetTexture("_MainTex", videoTexture);
+
+        // Adjust the videoScreen dimensions for the new videoTexture
+        videoScreen.localScale = new Vector3(videoWidth, videoHeight, videoScreen.localScale.z);
+        
+        // Adjust the videoScreen position for the new videoTexture
+        videoScreen.position = new Vector3(videoWidth / 2, videoHeight / 2, 1);
+
+        // Get a reference to the main camera gameObject
+        GameObject mainCamera = GameObject.Find("Main Camera");
+        // Adjust the camera position to account for updates to the videoScreen
+        mainCamera.transform.position = new Vector3(videoWidth / 2, videoHeight / 2, -(videoWidth / 2));
+        // Adjust the camera size to account for updates to the videoScreen
+        mainCamera.GetComponent<Camera>().orthographicSize = videoHeight / 2;
 
         // Compile the model asset into an object oriented representation
         m_RunTimeModel = ModelLoader.Load(modelAsset);
@@ -304,11 +371,18 @@ public class PoseNet : MonoBehaviour
         float stride = (imageHeight - 1) / (heatmaps.shape[1] - 1);
         stride -= (stride % 8);
 
+        // The smallest dimension of the videoTexture
+        int minDimension = Mathf.Min(videoTexture.width, videoTexture.height);
+        // The largest dimension of the videoTexture
+        int maxDimension = Mathf.Max(videoTexture.width, videoTexture.height);
+
         // The value used to scale the key point locations up to the source resolution
-        float scale = (float)videoTexture.height / (float)imageHeight;
+        // float scale = (float)videoTexture.height / (float)imageHeight;
+        float scale = (float)minDimension / (float)Mathf.Min(imageWidth, imageHeight);
         
         // The value used to compensate for resizing the source image to a square aspect ratio
-        float unsqueezeScale = (float)videoTexture.width / (float)videoTexture.height;
+        // float unsqueezeScale = (float)videoTexture.width / (float)videoTexture.height;
+        float unsqueezeScale = (float)maxDimension / (float)minDimension;
 
         // Iterate through heatmaps
         for (int k = 0; k < numKeypoints; k++)
@@ -328,18 +402,28 @@ public class PoseNet : MonoBehaviour
             // Add the offset vector to refine the keypoint location
             // Scale the position up to the videoTexture resolution
             // Compensate for any change in aspect ratio
-            float xPos = (coords[0]*stride + offset_vector[0])*scale*unsqueezeScale;
-
-            if (useWebcam)
-            {
-                xPos = videoTexture.width - xPos;
-            }
+            // float xPos = (coords[0]*stride + offset_vector[0])*scale*unsqueezeScale;
+            float xPos = (coords[0]*stride + offset_vector[0])*scale;
 
             // Calculate the Y-axis position
             // Scale the Y coordinate up to the inputImage resolution and subtract it from the imageHeight
             // Add the offset vector to refine the keypoint location
             // Scale the position up to the videoTexture resolution
             float yPos = (imageHeight - (coords[1]*stride + offset_vector[1]))*scale;
+
+            if (videoTexture.width > videoTexture.height)
+            {
+                xPos *= unsqueezeScale;
+            }
+            else 
+            {
+                yPos *= unsqueezeScale;
+            }
+
+            if (useWebcam)
+            {
+                xPos = videoTexture.width - xPos;
+            }
 
             // Update the estimated keypoint location in the source image
             keypointLocations[k] = new float[] { xPos, yPos, confidenceValue };
